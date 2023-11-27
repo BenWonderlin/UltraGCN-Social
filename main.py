@@ -56,6 +56,8 @@ def data_param_prepare(config_file):
     params['embedding_dim'] = embedding_dim
     ii_neighbor_num = config.getint('Model', 'ii_neighbor_num')
     params['ii_neighbor_num'] = ii_neighbor_num
+    uu_neighbor_num = config.getint('Model', 'uu_neighbor_num')
+    params['uu_neighbor_num'] = uu_neighbor_num
     model_save_path = config['Model']['model_save_path']
     params['model_save_path'] = model_save_path
     max_epoch = config.getint('Model', 'max_epoch')
@@ -69,6 +71,7 @@ def data_param_prepare(config_file):
     dataset = config['Training']['dataset']
     params['dataset'] = dataset
     train_file_path = config['Training']['train_file_path']
+    trust_file_path = config['Training']['trust_file_path']
     gpu = config['Training']['gpu']
     params['gpu'] = gpu
     device = torch.device('cuda:'+ params['gpu'] if torch.cuda.is_available() else "cpu")
@@ -96,6 +99,8 @@ def data_param_prepare(config_file):
     params['gamma'] = gamma
     lambda_ = config.getfloat('Training', 'lambda')
     params['lambda'] = lambda_
+    mu = config.getfloat('Training', 'mu')
+    params['mu'] = mu
     sampling_sift_pos = config.getboolean('Training', 'sampling_sift_pos')
     params['sampling_sift_pos'] = sampling_sift_pos
     
@@ -107,7 +112,9 @@ def data_param_prepare(config_file):
     test_file_path = config['Testing']['test_file_path']
 
     # dataset processing
-    train_data, test_data, train_mat, user_num, item_num, constraint_mat = load_data(train_file_path, test_file_path)
+    (train_data, test_data, trust_data,
+        train_mat, trust_mat,
+        user_num, item_num, constraint_mat) = load_data(train_file_path, test_file_path, trust_file_path)
     train_loader = data.DataLoader(train_data, batch_size=batch_size, shuffle = True, num_workers=5)
     test_loader = data.DataLoader(list(range(user_num)), batch_size=test_batch_size, shuffle=False, num_workers=5)
 
@@ -129,7 +136,7 @@ def data_param_prepare(config_file):
     # Compute \Omega to extend UltraGCN to the item-item co-occurrence graph
     ii_cons_mat_path = './' + dataset + '_ii_constraint_mat'
     ii_neigh_mat_path = './' + dataset + '_ii_neighbor_mat'
-    
+
     if os.path.exists(ii_cons_mat_path):
         ii_constraint_mat = pload(ii_cons_mat_path)
         ii_neighbor_mat = pload(ii_neigh_mat_path)
@@ -138,7 +145,26 @@ def data_param_prepare(config_file):
         pstore(ii_neighbor_mat, ii_neigh_mat_path)
         pstore(ii_constraint_mat, ii_cons_mat_path)
 
-    return params, constraint_mat, ii_constraint_mat, ii_neighbor_mat, train_loader, test_loader, mask, test_ground_truth_list, interacted_items
+
+    # TODO: Compute \Omega to extend UltraGCN to the user-user social graph
+
+    uu_cons_mat_path = './' + dataset + '_uu_constraint_mat'
+    uu_neigh_mat_path = './' + dataset + '_uu_neighbor_mat'
+
+    if os.path.exists(uu_cons_mat_path):
+        uu_constraint_mat = pload(uu_cons_mat_path)
+        uu_neighbor_mat = pload(uu_neigh_mat_path)
+    else:
+        uu_neighbor_mat, uu_constraint_mat = get_uu_constraint_mat(trust_mat, uu_neighbor_num)
+        pstore(uu_neighbor_mat, uu_neigh_mat_path)
+        pstore(uu_constraint_mat, uu_cons_mat_path)
+
+    return (
+        params, constraint_mat, 
+        ii_constraint_mat, ii_neighbor_mat, 
+        uu_constraint_mat, uu_neighbor_mat,
+        train_loader, test_loader, mask, test_ground_truth_list, interacted_items
+    )
 
 
 def get_ii_constraint_mat(train_mat, num_neighbors, ii_diagonal_zero = False):
@@ -166,16 +192,51 @@ def get_ii_constraint_mat(train_mat, num_neighbors, ii_diagonal_zero = False):
     print('Computation \\Omega OK!')
     return res_mat.long(), res_sim_mat.float()
 
+
+# TODO: implement
+def get_uu_constraint_mat(trust_mat, num_neighbors):
+    print('Computing \\Omega for the user-user graph... ')
+ 
+    A = trust_mat
+    n_users = A.shape[0]
+    res_mat = torch.zeros((n_users, num_neighbors))
+    res_sim_mat = torch.zeros((n_users, num_neighbors))
+
+    D_row = np.sum(A, axis = 0).reshape(-1)
+    D_col = np.sum(A, axis = 1).reshape(-1)
+
+    beta_D_row = (np.sqrt(D_row + 1) / D_row).reshape(-1, 1)
+    beta_D_col = (1 / np.sqrt(D_col + 1)).reshape(1, -1)
+    all_uu_constraint_mat = torch.from_numpy(beta_D_row.dot(beta_D_col))
+
+    for i in range(n_users):
+        row = all_uu_constraint_mat[i] * torch.from_numpy(A.getrow(i).toarray()[0])
+        row_sims, row_idxs = torch.topk(row, num_neighbors)
+        res_mat[i] = row_idxs
+        res_sim_mat[i] = row_sims
+        if i % 15000 == 0:
+            print('u-u constraint matrix {} ok'.format(i))
+
+    print('Computation \\Omega OK!')
+    return res_mat.long(), res_sim_mat.float()
+
+     
+
     
-def load_data(train_file, test_file):
+def load_data(train_file, test_file, trust_file):
+
     trainUniqueUsers, trainItem, trainUser = [], [], []
     testUniqueUsers, testItem, testUser = [], [], []
+    trustUniqueUsers, trustFriend, trustUser = [], [], []
+
     n_user, m_item = 0, 0
     trainDataSize, testDataSize = 0, 0
+    trustDataSize = 0
+
     with open(train_file, 'r') as f:
         for l in f.readlines():
             if len(l) > 0:
-                l = l.strip('\n').split(' ')
+                l = l.strip().split(' ')
                 items = [int(i) for i in l[1:]]
                 uid = int(l[0])
                 trainUniqueUsers.append(uid)
@@ -191,7 +252,7 @@ def load_data(train_file, test_file):
     with open(test_file) as f:
         for l in f.readlines():
             if len(l) > 0:
-                l = l.strip('\n').split(' ')
+                l = l.strip().split(' ')
                 try:
                     items = [int(i) for i in l[1:]]
                 except:
@@ -207,8 +268,24 @@ def load_data(train_file, test_file):
                 n_user = max(n_user, uid)
                 testDataSize += len(items)
 
+    with open(trust_file) as f:
+        for l in f.readlines():
+            if len(l) > 0:
+                l = l.strip().split(' ')
+                try:
+                    friends = [int(i) for i in l[1:]]
+                except:
+                    friends = []
+                uid = int(l[0])
+                trustUniqueUsers.append(uid)
+                trustUser.extend([uid] * len(friends))
+                trustFriend.extend(friends)
+                n_user = max(n_user, uid)
+                trustDataSize += len(friends)
+
     train_data = []
     test_data = []
+    trust_data = []
 
     n_user += 1
     m_item += 1
@@ -222,6 +299,13 @@ def load_data(train_file, test_file):
     for x in train_data:
         train_mat[x[0], x[1]] = 1.0
 
+    for i in range(len(trustUser)):
+        trust_data.append([trustUser[i], trustFriend[i]])
+    trust_mat = sp.dok_matrix((n_user, n_user), dtype = np.float32 )
+
+    for x in trust_data:
+         trust_mat[x[0], x[1]] = 1.0
+
     # construct degree matrix for graphmf
 
     items_D = np.sum(train_mat, axis = 0).reshape(-1)
@@ -233,7 +317,12 @@ def load_data(train_file, test_file):
     constraint_mat = {"beta_uD": torch.from_numpy(beta_uD).reshape(-1),
                       "beta_iD": torch.from_numpy(beta_iD).reshape(-1)}
 
-    return train_data, test_data, train_mat, n_user, m_item, constraint_mat
+    return (
+        train_data, test_data, trust_data,
+        train_mat, trust_mat,
+        n_user, m_item, constraint_mat
+    )
+
 
 
 def pload(path):
@@ -272,7 +361,9 @@ def Sampling(pos_train_data, item_num, neg_ratio, interacted_items, sampling_sif
 
 
 class UltraGCN(nn.Module):
-    def __init__(self, params, constraint_mat, ii_constraint_mat, ii_neighbor_mat):
+    def __init__(self, params, constraint_mat, 
+                 ii_constraint_mat, ii_neighbor_mat,
+                 uu_constraint_mat, uu_neighbor_mat):
         super(UltraGCN, self).__init__()
         self.user_num = params['user_num']
         self.item_num = params['item_num']
@@ -285,6 +376,7 @@ class UltraGCN(nn.Module):
         self.negative_weight = params['negative_weight']
         self.gamma = params['gamma']
         self.lambda_ = params['lambda']
+        self.mu = params['mu']
 
         self.user_embeds = nn.Embedding(self.user_num, self.embedding_dim)
         self.item_embeds = nn.Embedding(self.item_num, self.embedding_dim)
@@ -292,6 +384,8 @@ class UltraGCN(nn.Module):
         self.constraint_mat = constraint_mat
         self.ii_constraint_mat = ii_constraint_mat
         self.ii_neighbor_mat = ii_neighbor_mat
+        self.uu_constraint_mat = uu_constraint_mat
+        self.uu_neighbor_mat = uu_neighbor_mat
 
         self.initial_weight = params['initial_weight']
         self.initial_weights()
@@ -303,14 +397,23 @@ class UltraGCN(nn.Module):
     def get_omegas(self, users, pos_items, neg_items):
         device = self.get_device()
         if self.w2 > 0:
-            pos_weight = torch.mul(self.constraint_mat['beta_uD'][users], self.constraint_mat['beta_iD'][pos_items]).to(device)
+            pos_weight = torch.mul(
+                    self.constraint_mat['beta_uD'][users], 
+                    self.constraint_mat['beta_iD'][pos_items]
+                 ).to(device)
             pos_weight = self.w1 + self.w2 * pos_weight
         else:
             pos_weight = self.w1 * torch.ones(len(pos_items)).to(device)
         
-        # users = (users * self.item_num).unsqueeze(0)
+        #users = (users * self.item_num).unsqueeze(0)
         if self.w4 > 0:
-            neg_weight = torch.mul(torch.repeat_interleave(self.constraint_mat['beta_uD'][users], neg_items.size(1)), self.constraint_mat['beta_iD'][neg_items.flatten()]).to(device)
+            neg_weight = torch.mul(
+                    torch.repeat_interleave(
+                         self.constraint_mat['beta_uD'][users], 
+                         neg_items.size(1)
+                    ), 
+                    self.constraint_mat['beta_iD'][neg_items.flatten()]
+                 ).to(device)
             neg_weight = self.w3 + self.w4 * neg_weight
         else:
             neg_weight = self.w3 * torch.ones(neg_items.size(0) * neg_items.size(1)).to(device)
@@ -349,6 +452,17 @@ class UltraGCN(nn.Module):
       
         # loss = loss.sum(-1)
         return loss.sum()
+    
+    # TODO: implement
+    def cal_loss_U(self, users, pos_items):
+
+        device = self.get_device()
+        neighbor_embeds = self.user_embeds(self.uu_neighbor_mat[users].to(device))    # len(pos_items) * num_neighbors * dim
+        sim_scores = self.uu_constraint_mat[users].to(device)     # len(pos_items) * num_neighbors
+        item_embeds = self.item_embeds(pos_items).unsqueeze(1)
+        
+        loss = -sim_scores * (item_embeds * neighbor_embeds).sum(dim=-1).sigmoid().log()
+        return loss.sum()
 
     def norm_loss(self):
         loss = 0.0
@@ -357,11 +471,14 @@ class UltraGCN(nn.Module):
         return loss / 2
 
     def forward(self, users, pos_items, neg_items):
+
         omega_weight = self.get_omegas(users, pos_items, neg_items)
-        
         loss = self.cal_loss_L(users, pos_items, neg_items, omega_weight)
+
         loss += self.gamma * self.norm_loss()
         loss += self.lambda_ * self.cal_loss_I(users, pos_items)
+        loss += self.mu * self.cal_loss_U(users, pos_items)
+
         return loss
 
     def test_foward(self, users):
@@ -392,11 +509,19 @@ def train(model, optimizer, train_loader, test_loader, mask, test_ground_truth_l
         writer = SummaryWriter()
 
     for epoch in range(params['max_epoch']):
+
+        print("starting epoch")
+
         model.train() 
         start_time = time.time()
 
         for batch, x in enumerate(train_loader): # x: tensor:[users, pos_items]
             users, pos_items, neg_items = Sampling(x, params['item_num'], params['negative_num'], interacted_items, params['sampling_sift_pos'])
+
+            users = users.type(torch.int64)
+            pos_items = pos_items.type(torch.int64)
+            neg_items = neg_items.type(torch.int64)
+            
             users = users.to(device)
             pos_items = pos_items.to(device)
             neg_items = neg_items.to(device)
@@ -576,13 +701,16 @@ if __name__ == "__main__":
     print('###################### UltraGCN ######################')
 
     print('Loading Configuration...')
-    params, constraint_mat, ii_constraint_mat, ii_neighbor_mat, train_loader, test_loader, mask, test_ground_truth_list, interacted_items = data_param_prepare(args.config_file)
+    (params, constraint_mat, 
+    ii_constraint_mat, ii_neighbor_mat, 
+    uu_constraint_mat, uu_neighbor_mat,
+    train_loader, test_loader, mask, test_ground_truth_list, interacted_items) = data_param_prepare(args.config_file)
     
     print('Load Configuration OK, show them below')
     print('Configuration:')
     print(params)
 
-    ultragcn = UltraGCN(params, constraint_mat, ii_constraint_mat, ii_neighbor_mat)
+    ultragcn = UltraGCN(params, constraint_mat, ii_constraint_mat, ii_neighbor_mat, uu_constraint_mat, uu_neighbor_mat)
     ultragcn = ultragcn.to(params['device'])
     optimizer = torch.optim.Adam(ultragcn.parameters(), lr=params['lr'])
 
