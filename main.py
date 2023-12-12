@@ -44,6 +44,7 @@ import time
 import argparse
 from torch.utils.tensorboard import SummaryWriter
 
+import sys
 
 def data_param_prepare(config_file):
 
@@ -99,8 +100,8 @@ def data_param_prepare(config_file):
     params['gamma'] = gamma
     lambda_ = config.getfloat('Training', 'lambda')
     params['lambda'] = lambda_
-    mu = config.getfloat('Training', 'mu')
-    params['mu'] = mu
+    eta = config.getfloat('Training', 'eta')
+    params['eta'] = eta
     sampling_sift_pos = config.getboolean('Training', 'sampling_sift_pos')
     params['sampling_sift_pos'] = sampling_sift_pos
     
@@ -136,28 +137,36 @@ def data_param_prepare(config_file):
     # Compute \Omega to extend UltraGCN to the item-item co-occurrence graph
     ii_cons_mat_path = './' + dataset + '_ii_constraint_mat'
     ii_neigh_mat_path = './' + dataset + '_ii_neighbor_mat'
+    
+    ii_neighbor_mat = None
+    ii_constraint_mat = None
 
-    if os.path.exists(ii_cons_mat_path):
+    if params['lambda'] > 0 and os.path.exists(ii_cons_mat_path):
         ii_constraint_mat = pload(ii_cons_mat_path)
         ii_neighbor_mat = pload(ii_neigh_mat_path)
-    else:
+    elif params['lambda'] > 0:
         ii_neighbor_mat, ii_constraint_mat = get_ii_constraint_mat(train_mat, ii_neighbor_num)
         pstore(ii_neighbor_mat, ii_neigh_mat_path)
         pstore(ii_constraint_mat, ii_cons_mat_path)
 
 
-    # TODO: Compute \Omega to extend UltraGCN to the user-user social graph
-
+    # Compute \Omega to extend UltraGCN to the user-user social graph
+    
     uu_cons_mat_path = './' + dataset + '_uu_constraint_mat'
     uu_neigh_mat_path = './' + dataset + '_uu_neighbor_mat'
+    
+    uu_neighbor_mat = None
+    uu_constraint_mat = None
 
-    if os.path.exists(uu_cons_mat_path):
+    if params["eta"] > 0 and os.path.exists(uu_cons_mat_path):
         uu_constraint_mat = pload(uu_cons_mat_path)
         uu_neighbor_mat = pload(uu_neigh_mat_path)
-    else:
+    elif params["eta"] > 0:
         uu_neighbor_mat, uu_constraint_mat = get_uu_constraint_mat(trust_mat, uu_neighbor_num)
         pstore(uu_neighbor_mat, uu_neigh_mat_path)
         pstore(uu_constraint_mat, uu_cons_mat_path)
+    else: 
+        uu_neighbor_mat, uu_constraint_mat = None, None
 
     return (
         params, constraint_mat, 
@@ -177,8 +186,9 @@ def get_ii_constraint_mat(train_mat, num_neighbors, ii_diagonal_zero = False):
         A[range(n_items), range(n_items)] = 0
     items_D = np.sum(A, axis = 0).reshape(-1)
     users_D = np.sum(A, axis = 1).reshape(-1)
+    users_D[users_D == 0] = 1 # prevent nans
 
-    beta_uD = (np.sqrt(users_D + 1) / users_D).reshape(-1, 1)
+    beta_uD = (np.sqrt(users_D + 1) / users_D).reshape(-1, 1)  
     beta_iD = (1 / np.sqrt(items_D + 1)).reshape(1, -1)
     all_ii_constraint_mat = torch.from_numpy(beta_uD.dot(beta_iD))
     for i in range(n_items):
@@ -186,7 +196,7 @@ def get_ii_constraint_mat(train_mat, num_neighbors, ii_diagonal_zero = False):
         row_sims, row_idxs = torch.topk(row, num_neighbors)
         res_mat[i] = row_idxs
         res_sim_mat[i] = row_sims
-        if i % 15000 == 0:
+        if i % 1000 == 0:
             print('i-i constraint matrix {} ok'.format(i))
 
     print('Computation \\Omega OK!')
@@ -195,7 +205,7 @@ def get_ii_constraint_mat(train_mat, num_neighbors, ii_diagonal_zero = False):
 
 # TODO: implement
 def get_uu_constraint_mat(trust_mat, num_neighbors):
-    print('Computing \\Omega for the user-user graph... ')
+    print(f'Computing \\Omega for the user-user graph (num users = {trust_mat.shape[0]})... ')
  
     A = trust_mat
     n_users = A.shape[0]
@@ -204,17 +214,19 @@ def get_uu_constraint_mat(trust_mat, num_neighbors):
 
     D_row = np.sum(A, axis = 0).reshape(-1)
     D_col = np.sum(A, axis = 1).reshape(-1)
+    D_row[D_row == 0] = 1 # prevent nans
 
     beta_D_row = (np.sqrt(D_row + 1) / D_row).reshape(-1, 1)
     beta_D_col = (1 / np.sqrt(D_col + 1)).reshape(1, -1)
     all_uu_constraint_mat = torch.from_numpy(beta_D_row.dot(beta_D_col))
 
+    print(f"num users: {n_users}")
     for i in range(n_users):
         row = all_uu_constraint_mat[i] * torch.from_numpy(A.getrow(i).toarray()[0])
         row_sims, row_idxs = torch.topk(row, num_neighbors)
         res_mat[i] = row_idxs
         res_sim_mat[i] = row_sims
-        if i % 15000 == 0:
+        if i % 1000 == 0:
             print('u-u constraint matrix {} ok'.format(i))
 
     print('Computation \\Omega OK!')
@@ -268,20 +280,21 @@ def load_data(train_file, test_file, trust_file):
                 n_user = max(n_user, uid)
                 testDataSize += len(items)
 
-    with open(trust_file) as f:
-        for l in f.readlines():
-            if len(l) > 0:
-                l = l.strip().split(' ')
-                try:
-                    friends = [int(i) for i in l[1:]]
-                except:
-                    friends = []
-                uid = int(l[0])
-                trustUniqueUsers.append(uid)
-                trustUser.extend([uid] * len(friends))
-                trustFriend.extend(friends)
-                n_user = max(n_user, uid)
-                trustDataSize += len(friends)
+    if trust_file != ".":
+        with open(trust_file) as f:
+            for l in f.readlines():
+                if len(l) > 0:
+                    l = l.strip().split(' ')
+                    try:
+                        friends = [int(i) for i in l[1:]]
+                    except:
+                        friends = []
+                    uid = int(l[0])
+                    trustUniqueUsers.append(uid)
+                    trustUser.extend([uid] * len(friends))
+                    trustFriend.extend(friends)
+                    n_user = max(n_user, uid)
+                    trustDataSize += len(friends)
 
     train_data = []
     test_data = []
@@ -376,7 +389,7 @@ class UltraGCN(nn.Module):
         self.negative_weight = params['negative_weight']
         self.gamma = params['gamma']
         self.lambda_ = params['lambda']
-        self.mu = params['mu']
+        self.eta = params['eta']
 
         self.user_embeds = nn.Embedding(self.user_num, self.embedding_dim)
         self.item_embeds = nn.Embedding(self.item_num, self.embedding_dim)
@@ -457,8 +470,8 @@ class UltraGCN(nn.Module):
     def cal_loss_U(self, users, pos_items):
 
         device = self.get_device()
-        neighbor_embeds = self.user_embeds(self.uu_neighbor_mat[users].to(device))    # len(pos_items) * num_neighbors * dim
-        sim_scores = self.uu_constraint_mat[users].to(device)     # len(pos_items) * num_neighbors
+        neighbor_embeds = self.user_embeds(self.uu_neighbor_mat[users].to(device)) # len(users) * uu_num_neighbors * dim
+        sim_scores = self.uu_constraint_mat[users].to(device)   # len(users) * uu_num_neighbors * dim
         item_embeds = self.item_embeds(pos_items).unsqueeze(1)
         
         loss = -sim_scores * (item_embeds * neighbor_embeds).sum(dim=-1).sigmoid().log()
@@ -476,8 +489,10 @@ class UltraGCN(nn.Module):
         loss = self.cal_loss_L(users, pos_items, neg_items, omega_weight)
 
         loss += self.gamma * self.norm_loss()
-        loss += self.lambda_ * self.cal_loss_I(users, pos_items)
-        loss += self.mu * self.cal_loss_U(users, pos_items)
+        if self.lambda_ > 0:
+            loss += self.lambda_ * self.cal_loss_I(users, pos_items)
+        if self.eta > 0:
+            loss += self.eta * self.cal_loss_U(users, pos_items)
 
         return loss
 
@@ -510,8 +525,6 @@ def train(model, optimizer, train_loader, test_loader, mask, test_ground_truth_l
 
     for epoch in range(params['max_epoch']):
 
-        print("starting epoch")
-
         model.train() 
         start_time = time.time()
 
@@ -538,7 +551,7 @@ def train(model, optimizer, train_loader, test_loader, mask, test_ground_truth_l
             writer.add_scalar("Loss/train_epoch", loss, epoch)
 
         need_test = True
-        if epoch < 50 and epoch % 5 != 0:
+        if epoch % 5 != 0:
             need_test = False
             
         if need_test:
@@ -570,7 +583,8 @@ def train(model, optimizer, train_loader, test_loader, mask, test_ground_truth_l
             print('The best model is saved at {}'.format(params['model_save_path']))
             break
 
-    writer.flush()
+    if params['enable_tensorboard']:
+        writer.flush()
 
     print('Training end!')
 
@@ -693,11 +707,13 @@ def test(model, test_loader, test_ground_truth_list, mask, topk, n_user):
     return F1_score, Precision, Recall, NDCG
 
 
+
 if __name__ == "__main__":
+    
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_file', type=str, help='config file path')
     args = parser.parse_args()
-
+                    
     print('###################### UltraGCN ######################')
 
     print('Loading Configuration...')
@@ -717,3 +733,6 @@ if __name__ == "__main__":
     train(ultragcn, optimizer, train_loader, test_loader, mask, test_ground_truth_list, interacted_items, params)
 
     print('END')
+            
+
+    

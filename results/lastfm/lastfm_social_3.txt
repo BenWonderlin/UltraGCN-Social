@@ -1,0 +1,117 @@
+###################### UltraGCN ######################
+Loading Configuration...
+load path = ./lastfm_social_ii_constraint_mat object
+load path = ./lastfm_social_ii_neighbor_mat object
+load path = ./lastfm_social_uu_constraint_mat object
+load path = ./lastfm_social_uu_neighbor_mat object
+Load Configuration OK, show them below
+Configuration:
+{'embedding_dim': 64, 'ii_neighbor_num': 10, 'uu_neighbor_num': 10, 'model_save_path': './ultragcn_lastfm.pt', 'max_epoch': 2000, 'enable_tensorboard': False, 'initial_weight': 0.0001, 'dataset': 'lastfm_social', 'gpu': '0', 'device': device(type='cuda', index=0), 'lr': 0.001, 'batch_size': 1024, 'early_stop_epoch': 15, 'w1': 1e-08, 'w2': 1.0, 'w3': 1e-08, 'w4': 1.0, 'negative_num': 800, 'negative_weight': 300.0, 'gamma': 0.0001, 'lambda': 0.001, 'eta': 0.01, 'sampling_sift_pos': False, 'test_batch_size': 2048, 'topk': 20, 'user_num': 1892, 'item_num': 17632}
+Total training batches = 73
+The time for epoch 0 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 9428.28516, F1-score: 0.064953 	 Precision: 0.04841	 Recall: 0.09865	NDCG: 0.08661
+The time for epoch 5 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 361.71469, F1-score: 0.066215 	 Precision: 0.04921	 Recall: 0.10119	NDCG: 0.09083
+The time for epoch 10 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 266.95950, F1-score: 0.066944 	 Precision: 0.04974	 Recall: 0.10236	NDCG: 0.09156
+The time for epoch 15 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 201.64172, F1-score: 0.067646 	 Precision: 0.05029	 Recall: 0.10329	NDCG: 0.09453
+The time for epoch 20 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 193.83069, F1-score: 0.066502 	 Precision: 0.04947	 Recall: 0.10141	NDCG: 0.09366
+The time for epoch 25 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 173.75716, F1-score: 0.067533 	 Precision: 0.05018	 Recall: 0.10321	NDCG: 0.09447
+The time for epoch 30 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 183.79248, F1-score: 0.066779 	 Precision: 0.04968	 Recall: 0.10181	NDCG: 0.09379
+The time for epoch 35 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 195.59280, F1-score: 0.067288 	 Precision: 0.05003	 Recall: 0.10274	NDCG: 0.09376
+The time for epoch 40 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 189.14597, F1-score: 0.066559 	 Precision: 0.04950	 Recall: 0.10157	NDCG: 0.09413
+The time for epoch 45 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 185.00121, F1-score: 0.066918 	 Precision: 0.04976	 Recall: 0.10213	NDCG: 0.09500
+The time for epoch 50 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 183.05608, F1-score: 0.066304 	 Precision: 0.04931	 Recall: 0.10116	NDCG: 0.09403
+The time for epoch 55 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 179.67540, F1-score: 0.066261 	 Precision: 0.04923	 Recall: 0.10129	NDCG: 0.09353
+The time for epoch 60 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 175.41045, F1-score: 0.066403 	 Precision: 0.04939	 Recall: 0.10129	NDCG: 0.09349
+The time for epoch 65 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 187.91241, F1-score: 0.067281 	 Precision: 0.05003	 Recall: 0.10270	NDCG: 0.09459
+The time for epoch 70 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 160.47304, F1-score: 0.067889 	 Precision: 0.05050	 Recall: 0.10353	NDCG: 0.09465
+The time for epoch 75 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 180.54874, F1-score: 0.065981 	 Precision: 0.04905	 Recall: 0.10077	NDCG: 0.09588
+The time for epoch 80 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 175.70374, F1-score: 0.066730 	 Precision: 0.04966	 Recall: 0.10170	NDCG: 0.09678
+The time for epoch 85 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 181.66760, F1-score: 0.066241 	 Precision: 0.04921	 Recall: 0.10131	NDCG: 0.09449
+The time for epoch 90 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 175.26772, F1-score: 0.067164 	 Precision: 0.04997	 Recall: 0.10238	NDCG: 0.09783
+The time for epoch 95 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 175.51045, F1-score: 0.068506 	 Precision: 0.05092	 Recall: 0.10463	NDCG: 0.09941
+The time for epoch 100 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 179.15205, F1-score: 0.068517 	 Precision: 0.05092	 Recall: 0.10468	NDCG: 0.09919
+The time for epoch 105 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 177.87537, F1-score: 0.071490 	 Precision: 0.05317	 Recall: 0.10906	NDCG: 0.10603
+The time for epoch 110 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 177.83542, F1-score: 0.076181 	 Precision: 0.05663	 Recall: 0.11633	NDCG: 0.11715
+The time for epoch 115 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 173.89786, F1-score: 0.085167 	 Precision: 0.06335	 Recall: 0.12992	NDCG: 0.13286
+The time for epoch 120 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 166.62111, F1-score: 0.097193 	 Precision: 0.07233	 Recall: 0.14810	NDCG: 0.15084
+The time for epoch 125 is: train time = 00: 00: 09, test time = 00: 00: 01
+Loss = 151.16377, F1-score: 0.107448 	 Precision: 0.07999	 Recall: 0.16359	NDCG: 0.16626
+The time for epoch 130 is: train time = 00: 00: 09, test time = 00: 00: 01
+Loss = 151.57556, F1-score: 0.120550 	 Precision: 0.08983	 Recall: 0.18322	NDCG: 0.18780
+The time for epoch 135 is: train time = 00: 00: 09, test time = 00: 00: 01
+Loss = 140.26355, F1-score: 0.133283 	 Precision: 0.09934	 Recall: 0.20246	NDCG: 0.20620
+The time for epoch 140 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 132.19682, F1-score: 0.142974 	 Precision: 0.10663	 Recall: 0.21689	NDCG: 0.22112
+The time for epoch 145 is: train time = 00: 00: 09, test time = 00: 00: 01
+Loss = 122.83297, F1-score: 0.151560 	 Precision: 0.11313	 Recall: 0.22951	NDCG: 0.23310
+The time for epoch 150 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 110.62138, F1-score: 0.158014 	 Precision: 0.11786	 Recall: 0.23965	NDCG: 0.24404
+The time for epoch 155 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 106.79140, F1-score: 0.163016 	 Precision: 0.12154	 Recall: 0.24747	NDCG: 0.25016
+The time for epoch 160 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 92.34534, F1-score: 0.167304 	 Precision: 0.12468	 Recall: 0.25420	NDCG: 0.25613
+The time for epoch 165 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 88.52187, F1-score: 0.169781 	 Precision: 0.12653	 Recall: 0.25794	NDCG: 0.25853
+The time for epoch 170 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 83.52087, F1-score: 0.169865 	 Precision: 0.12656	 Recall: 0.25822	NDCG: 0.25982
+The time for epoch 175 is: train time = 00: 00: 09, test time = 00: 00: 01
+Loss = 82.11058, F1-score: 0.169245 	 Precision: 0.12603	 Recall: 0.25756	NDCG: 0.25801
+The time for epoch 180 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 78.99869, F1-score: 0.167545 	 Precision: 0.12474	 Recall: 0.25509	NDCG: 0.25449
+The time for epoch 185 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 77.79908, F1-score: 0.166849 	 Precision: 0.12426	 Recall: 0.25386	NDCG: 0.25185
+The time for epoch 190 is: train time = 00: 00: 09, test time = 00: 00: 01
+Loss = 76.57410, F1-score: 0.165577 	 Precision: 0.12326	 Recall: 0.25216	NDCG: 0.24988
+The time for epoch 195 is: train time = 00: 00: 09, test time = 00: 00: 01
+Loss = 74.82221, F1-score: 0.164783 	 Precision: 0.12273	 Recall: 0.25069	NDCG: 0.24734
+The time for epoch 200 is: train time = 00: 00: 10, test time = 00: 00: 01
+Loss = 71.26764, F1-score: 0.162630 	 Precision: 0.12109	 Recall: 0.24756	NDCG: 0.24306
+The time for epoch 205 is: train time = 00: 00: 09, test time = 00: 00: 01
+Loss = 70.82810, F1-score: 0.160579 	 Precision: 0.11956	 Recall: 0.24446	NDCG: 0.24099
+The time for epoch 210 is: train time = 00: 00: 09, test time = 00: 00: 01
+Loss = 70.55309, F1-score: 0.159105 	 Precision: 0.11845	 Recall: 0.24227	NDCG: 0.23876
+The time for epoch 215 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 67.15135, F1-score: 0.157929 	 Precision: 0.11752	 Recall: 0.24069	NDCG: 0.23558
+The time for epoch 220 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 70.39818, F1-score: 0.156962 	 Precision: 0.11691	 Recall: 0.23874	NDCG: 0.23373
+The time for epoch 225 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 68.18571, F1-score: 0.155663 	 Precision: 0.11594	 Recall: 0.23681	NDCG: 0.23245
+The time for epoch 230 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 68.24765, F1-score: 0.154936 	 Precision: 0.11538	 Recall: 0.23576	NDCG: 0.23019
+The time for epoch 235 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 67.45108, F1-score: 0.155259 	 Precision: 0.11572	 Recall: 0.23582	NDCG: 0.22982
+The time for epoch 240 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 65.11365, F1-score: 0.153587 	 Precision: 0.11448	 Recall: 0.23327	NDCG: 0.22784
+The time for epoch 245 is: train time = 00: 00: 08, test time = 00: 00: 01
+Loss = 67.84758, F1-score: 0.153169 	 Precision: 0.11411	 Recall: 0.23288	NDCG: 0.22614
+##########################################
+Early stop is triggered at 245 epochs.
+Results:
+best epoch = 170, best recall = 0.25822406447040314, best ndcg = 0.2598197776602241
+The best model is saved at ./ultragcn_lastfm.pt
+Training end!
+END
