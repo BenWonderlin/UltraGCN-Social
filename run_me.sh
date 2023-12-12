@@ -17,5 +17,5 @@ echo "Training UltraGCN-Social on Ciao..."
 python main.py --config_file ./config/ultragcn_ciao_m1.ini
 
 echo ""
-echo "done
+echo "done"
 

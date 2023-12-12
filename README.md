@@ -23,4 +23,4 @@ For consistency, it is strongly recommended to use the conda environment specifi
 - numpy 1.19.2
 - scipy 1.1.0
 
-
+Note that additional `pip` installations of packages like cuda-toolkit may be necessary to use a GPU.
